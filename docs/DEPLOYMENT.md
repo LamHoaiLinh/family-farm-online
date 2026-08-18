@@ -1,9 +1,25 @@
-# Deploy
-1. Tạo Supabase project.
-2. Chạy migrations theo thứ tự trong `supabase/migrations`.
-3. Deploy Edge Function `register-player`; set `SUPABASE_SERVICE_ROLE_KEY` bằng secret server-side.
-4. Tạo family đầu tiên bằng SQL admin, dùng SHA-256 lowercase join code cho `join_code_hash`.
-5. Copy `.env.example` thành `.env.local`, nhập `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, đặt `VITE_DEMO_MODE=false`.
-6. `npm install && npm run build`.
-7. Deploy thư mục `dist` lên GitHub Pages/Netlify/Cloudflare Pages.
-Lưu ý: GitHub Pages chỉ host frontend; Supabase giữ database/auth/realtime.
+# Deploy production
+## Supabase đang dùng
+- Project: `family-farm-online`
+- Region: Singapore (`ap-southeast-1`)
+- Frontend dùng publishable key trong `.env.production`.
+- Service role chỉ tồn tại trong môi trường Edge Function của Supabase.
+
+## Database
+Các migration `001`–`005` phải được áp theo thứ tự. Project production hiện đã được áp các migration tương ứng và có 20 cây seed.
+
+## Tài khoản gia đình
+Giao diện dùng Tên người chơi + Mật khẩu. Khi đăng ký thêm Mã gia đình. Edge Function `register-player` tạo Auth user, profile và 24 ô đất. Mã gia đình thật không được commit vào repository.
+
+## GitHub Pages
+Workflow `.github/workflows/deploy-pages.yml` chạy khi push `main`:
+1. `npm install`
+2. `npm test`
+3. `npm run build`
+4. upload `dist`
+5. deploy Pages
+
+Nếu workflow báo Pages chưa được bật: GitHub repo → Settings → Pages → Build and deployment → Source → chọn **GitHub Actions**, rồi chạy lại workflow.
+
+## PWA / iPhone
+Sau khi Pages hoạt động, mở URL bằng Safari, xoay ngang và có thể chọn Share → Add to Home Screen. Orientation lock không được giả định luôn hoạt động trên Safari; ứng dụng có overlay yêu cầu xoay ngang.

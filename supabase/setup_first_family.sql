@@ -1,7 +1,5 @@
--- Chạy một lần trong Supabase SQL Editor, thay hai giá trị bên dưới.
--- Mã gia đình không được lưu plaintext; chỉ SHA-256 lowercase/trim.
+-- Mẫu tạo family đầu tiên. KHÔNG commit mã gia đình thật vào GitHub.
+-- Chạy một lần trong môi trường quản trị và thay __FAMILY_JOIN_CODE__ bằng mã riêng.
 insert into public.families(name, join_code_hash)
-values (
-  'Gia đình Linh',
-  encode(digest(lower(trim('LINHFARM')), 'sha256'), 'hex')
-);
+values ('Gia đình Linh', encode(digest(lower(trim('__FAMILY_JOIN_CODE__')), 'sha256'), 'hex'))
+on conflict (join_code_hash) do nothing;

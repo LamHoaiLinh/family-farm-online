@@ -1,21 +1,41 @@
 # Nông Trại Gia Đình Online
-MVP web game landscape 16:9 dành cho 5–20 thành viên gia đình. Frontend Canvas/Vite/TypeScript; dữ liệu thiết kế cho Supabase PostgreSQL/Auth/RPC/Realtime.
+Web game nông trại online dành cho gia đình, landscape 16:9, Canvas/PWA + Supabase.
 
-## Chạy ngay không cần Supabase
+## Production backend
+Supabase project riêng `family-farm-online` đã được tạo ở Singapore. Database/RLS/RPC/Realtime và Edge Function đăng ký đã được triển khai. Frontend production lấy cấu hình từ `.env.production` bằng publishable key.
+
+## Chạy local
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
 ```
-Giữ `VITE_DEMO_MODE=true`. Bản demo có gieo, tưới, thu hoạch, kho, bán, mở kho bằng Kim Cương, ghé hàng xóm và hái trộm mô phỏng.
+`.env.production` là cấu hình production; để thử local không đụng dữ liệu thật có thể tạo `.env.local` với `VITE_DEMO_MODE=true`.
 
-## Kết nối Supabase
-Xem `docs/DEPLOYMENT.md`. Sau khi chạy migrations, deploy Edge Function `register-player` và tạo Family đầu tiên, đặt `VITE_DEMO_MODE=false`. Tên người chơi hiện được thiết kế duy nhất toàn hệ thống để đăng nhập chỉ cần Tên + Mật khẩu.
+## Gameplay MVP
+- 20 cây mở dần theo cấp.
+- trồng → tưới → chín → thu hoạch vào Kho.
+- kho mặc định 50; 1 Kim Cương = +5 chỗ.
+- hàng xóm cùng Family, ghé thăm và hái trộm một phần nhỏ cây chín.
+- server/database xác nhận các transaction kinh tế.
+- private Realtime channel theo Family đã chuẩn bị ở backend.
+
+## Tài khoản
+Đăng nhập: Tên người chơi + Mật khẩu.
+Đăng ký: thêm Tên hiển thị + Mã gia đình.
+Không cần email/OTP ở giao diện.
 
 ## Nguồn tham khảo
-- `grow-your-garden-master.zip`: repository MIT; tham khảo kiến trúc web/canvas/multiplayer. Bản mới không phụ thuộc backend Node/SQLite của source cũ.
-- `QQ-Farm-main.zip`: không thấy LICENSE trong ZIP; không copy code/asset. Chỉ học cơ chế social farm/steal/concurrency.
+- Grow Your Garden: source ZIP có MIT; dùng để nghiên cứu kiến trúc/web gameplay.
+- QQ-Farm: ZIP không có LICENSE; không copy code/asset, chỉ học cơ chế social/steal/concurrency.
 
-## Trạng thái v0.1
-Đã có: landscape/PWA shell, 20 crop config, Canvas farm, demo offline, schema/RLS/RPC Supabase nền tảng, neighbor visit/steal transaction, asset specification.
-Chưa hoàn thiện: UI auth thật, Realtime Presence/Broadcast, order generator/cooldown RPC, disease/death scheduler, Diamond recipes, 30–50 Villa parts, sound/animation production, production security audit.
+## Chưa hoàn chỉnh
+- đơn hàng generator/cooldown thật;
+- tưới giúp hàng xóm;
+- kết nối Presence/Broadcast vào toàn bộ UI;
+- bệnh/chết cây theo server time;
+- recipe đổi Kim Cương + speed upgrades;
+- Nhà Vườn 30–50 hạng mục;
+- chó giữ vườn/bắt quả tang;
+- production asset/sound.
+
+Xem `docs/DEPLOYMENT.md`, `docs/SECURITY.md`, `docs/ASSET_CAN_TAO.md`.

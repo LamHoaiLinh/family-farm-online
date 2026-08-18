@@ -1,24 +1,52 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.111.0';
 
-const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type'};
-Deno.serve(async req=>{
- if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
- try{
-  const {username,password,familyCode,displayName}=await req.json();
-  if(!/^[a-zA-Z0-9_.-]{3,24}$/.test(username||''))throw Error('Tên người chơi phải dài 3–24 ký tự, không có khoảng trắng.');
-  if((password||'').length<6)throw Error('Mật khẩu cần ít nhất 6 ký tự.');
-  const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const enc=new TextEncoder();
-  const digest=await crypto.subtle.digest('SHA-256',enc.encode(String(familyCode).trim().toLowerCase()));
-  const hex=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
-  const {data:family,error:fErr}=await admin.from('families').select('id').eq('join_code_hash',hex).maybeSingle();
-  if(fErr)throw fErr;
-  if(!family)throw Error('Mã gia đình không đúng.');
-  const synthetic=`${username.toLowerCase()}@family-farm.local`;
-  const {data:u,error:uErr}=await admin.auth.admin.createUser({email:synthetic,password,email_confirm:true,user_metadata:{username}});if(uErr)throw uErr;
-  const userId=u.user.id;
-  await admin.from('profiles').insert({id:userId,family_id:family.id,username:username.toLowerCase(),display_name:displayName||username});
-  const plots=[];for(let r=0;r<4;r++)for(let c=0;c<6;c++)plots.push({owner_id:userId,row:r,col:c});await admin.from('farm_plots').insert(plots);
-  return new Response(JSON.stringify({ok:true,loginKey:synthetic}),{headers:{...cors,'Content-Type':'application/json'}});
- }catch(e){return new Response(JSON.stringify({ok:false,error:e.message}),{status:400,headers:{...cors,'Content-Type':'application/json'}})}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json; charset=utf-8',
+};
+function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: corsHeaders }); }
+function syntheticEmail(username: string) { return `${username}@family-farm.local`; }
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return json({ ok: false, error: 'Phương thức không được hỗ trợ.' }, 405);
+  let createdUserId: string | undefined;
+  try {
+    const payload = await req.json().catch(() => ({}));
+    const username = String(payload.username ?? '').trim().toLowerCase();
+    const password = String(payload.password ?? '');
+    const familyCode = String(payload.familyCode ?? '').trim().toLowerCase();
+    const displayName = String(payload.displayName ?? username).trim().slice(0, 30) || username;
+    if (!/^[a-z0-9_.-]{3,24}$/.test(username)) throw new Error('Tên người chơi phải dài 3–24 ký tự và chỉ gồm chữ không dấu, số, _, . hoặc -.');
+    if (password.length < 8) throw new Error('Mật khẩu cần ít nhất 8 ký tự.');
+    if (familyCode.length < 8 || familyCode.length > 40) throw new Error('Mã gia đình không hợp lệ.');
+
+    const url = Deno.env.get('SUPABASE_URL'); const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!url || !serviceRole) throw new Error('Máy chủ chưa được cấu hình đầy đủ.');
+    const admin = createClient(url, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
+    const familyHash = await sha256Hex(familyCode);
+    const { data: family, error: familyError } = await admin.from('families').select('id').eq('join_code_hash', familyHash).maybeSingle();
+    if (familyError) throw familyError; if (!family) throw new Error('Mã gia đình không đúng.');
+    const { data: existing, error: existingError } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
+    if (existingError) throw existingError; if (existing) throw new Error('Tên người chơi đã được sử dụng.');
+    const email = syntheticEmail(username);
+    const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password, email_confirm: true, app_metadata: { family_id: family.id }, user_metadata: { display_name: displayName } });
+    if (createError) throw createError; createdUserId = created.user.id;
+    const { error: profileError } = await admin.from('profiles').insert({ id: createdUserId, family_id: family.id, username, display_name: displayName });
+    if (profileError) throw profileError;
+    const plots=[]; for(let row=0;row<4;row++) for(let col=0;col<6;col++) plots.push({owner_id:createdUserId,row,col});
+    const { error: plotsError } = await admin.from('farm_plots').insert(plots); if (plotsError) throw plotsError;
+    return json({ ok: true, loginKey: email });
+  } catch (error) {
+    if (createdUserId) {
+      try { const cleanup=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}}); await cleanup.auth.admin.deleteUser(createdUserId); } catch { }
+    }
+    return json({ ok:false, error:error instanceof Error?error.message:'Không đăng ký được tài khoản.' },400);
+  }
 });

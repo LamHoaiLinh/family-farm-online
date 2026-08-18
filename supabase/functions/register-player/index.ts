@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
     const familyHash = await sha256Hex(familyCode);
     const { data: family, error: familyError } = await admin
       .from('families')
-      .select('id')
+      .select('id,created_by')
       .eq('join_code_hash', familyHash)
       .maybeSingle();
     if (familyError) throw familyError;
@@ -93,6 +93,10 @@ Deno.serve(async (req: Request) => {
     }
     const { error: plotsError } = await admin.from('farm_plots').insert(plots);
     if (plotsError) throw plotsError;
+
+    if (!family.created_by) {
+      await admin.from('families').update({ created_by: createdUserId }).eq('id', family.id).is('created_by', null);
+    }
 
     return json({ ok: true, loginKey: email });
   } catch (error) {

@@ -38,7 +38,7 @@ Deno.serve(async (req: Request) => {
       throw new AppError('Tên người chơi phải dài 3–24 ký tự và chỉ gồm chữ không dấu, số, _, . hoặc -.');
     }
     if (password.length < 8) throw new AppError('Mật khẩu cần ít nhất 8 ký tự.');
-    if (familyCode.length < 8 || familyCode.length > 40) throw new AppError('Mã gia đình không hợp lệ.');
+    if (familyCode.length < 5 || familyCode.length > 40) throw new AppError('Mã gia đình phải dài từ 5–40 ký tự.');
 
     const url = Deno.env.get('SUPABASE_URL');
     const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

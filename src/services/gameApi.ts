@@ -8,6 +8,10 @@ function demoSeed():DemoState{
   const plots:PlotState[]=[]; for(let r=0;r<4;r++)for(let c=0;c<6;c++)plots.push({id:`${r}-${c}`,row:r,col:c});
   return {player:{id:'demo',name:'Linh',level:8,exp:520,gold:650,diamonds:2,warehouseCapacity:50,inventoryUsed:0},plots,inventory:{},selectedCrop:'carrot'};
 }
+function demoFresh():DemoState{
+  const plots:PlotState[]=[]; for(let r=0;r<4;r++)for(let c=0;c<6;c++)plots.push({id:`${r}-${c}`,row:r,col:c});
+  return {player:{id:'demo',name:'Linh',level:1,exp:0,gold:50,diamonds:0,warehouseCapacity:50,inventoryUsed:0},plots,inventory:{},selectedCrop:'carrot'};
+}
 function loadDemo(){try{return JSON.parse(localStorage.getItem(DEMO_KEY)||'') as DemoState}catch{return demoSeed()}}
 function saveDemo(s:DemoState){localStorage.setItem(DEMO_KEY,JSON.stringify(s));}
 
@@ -44,6 +48,12 @@ export class GameApi {
   async sell(cropId:CropId,qty:number){
     if(demoMode){const s=loadDemo(),have=s.inventory[cropId]||0;if(qty<=0||have<qty)throw Error('Không đủ nông sản.');s.inventory[cropId]=have-qty;s.player.inventoryUsed-=qty;s.player.gold+=cropById[cropId].sellPrice*qty;saveDemo(s);return;}
     const {error}=await supabase!.rpc('sell_item',{p_item_id:cropId,p_qty:qty});if(error)throw error;
+  }
+  async resetMyFarm(){
+    if(demoMode){saveDemo(demoFresh());return {ok:true};}
+    const {data,error}=await supabase!.rpc('reset_my_farm');
+    if(error)throw error;
+    return data;
   }
   async listNeighbors(){ if(demoMode)return [{id:'bich',name:'Bích',level:7,online:true},{id:'giakhang',name:'Gia Khang',level:6,online:false},{id:'sunny',name:'Sunny',level:4,online:true}]; const {data,error}=await supabase!.rpc('list_family_neighbors');if(error)throw error;return data; }
   async visitNeighbor(id:string){ if(demoMode){const s=demoSeed();s.player.name=id==='bich'?'Bích':id==='giakhang'?'Gia Khang':'Sunny'; ['tomato','corn','watermelon','carrot'].forEach((cid,i)=>{const p=s.plots[4+i*2];const crop=cropById[cid];p.cropId=cid as CropId;p.plantedAt=new Date(Date.now()-crop.growMinutes*70000).toISOString();p.wateredAt=new Date(Date.now()-12*3600000).toISOString();p.harvestAt=new Date(Date.now()-1000).toISOString();});return s;} const {data,error}=await supabase!.rpc('get_neighbor_farm',{p_neighbor_id:id});if(error)throw error;return {player:{id:data.player.id,name:data.player.name,level:data.player.level,exp:0,gold:0,diamonds:0,warehouseCapacity:0,inventoryUsed:0},plots:(data.plots||[]).map(mapPlot),inventory:{},selectedCrop:'carrot' as CropId}; }
